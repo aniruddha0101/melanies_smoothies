@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from snowflake.snowpark.context import get_active_session
 from snowflake.snowpark.functions import col
 
@@ -16,12 +17,23 @@ my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT
 fruit_names = [row.FRUIT_NAME for row in my_dataframe]
 
 # Display multiselect for ingredients
-ingredients_list = st.multiselect(
-    'Choose up to 5 ingredients:'
-    ,fruit_names
-    ,max_selections=6
-    
-)
+ingredients_list = st.multiselect("Select Fruits", options=fruit_names)
+
+if ingredients_list:
+    ingredients_string = ''
+    for fruit_chosen in ingredients_list:
+        ingredients_string += fruit_chosen + ' '
+        st.subheader(fruit_chosen + ' Nutrition Information')
+        try:
+            # Replace with your alternative API URL
+            response = requests.get(f"https://api.example.com/nutrition?fruit={fruit_chosen}", timeout=10)
+            response.raise_for_status()  # Check for HTTP errors
+            data = response.json()
+            st.dataframe(data, use_container_width=True)
+        except requests.RequestException as e:
+            st.error(f"Error fetching data for {fruit_chosen}: {e}")
+        except Exception as e:
+            st.error(f"An unexpected error occurred: {e}")
 
 # Submit order button
 if st.button('Submit Order'):
@@ -40,6 +52,6 @@ if st.button('Submit Order'):
         session.sql(my_insert_stmt).collect()
         
         # Personalized success message
-        st.success(f'Your Smoothie for is ordered! "{name_on_order}" ✅')
+        st.success(f'Your Smoothie for "{name_on_order}" is ordered! ✅')
     else:
         st.warning('Please enter a name and select at least one ingredient.')
